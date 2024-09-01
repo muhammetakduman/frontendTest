@@ -1,14 +1,56 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState,useCallback } from 'react';
 import * as maptilersdk from '@maptiler/sdk';
 import "@maptiler/sdk/dist/maptiler-sdk.css";
 import './map.css';
 import Supercluster from 'supercluster';
+import { MapProvider, useMapContext } from '../context/MapContext';
+import {produce} from "immer";
 
 export default function Map() {
+  const { mapContainer, geojsonData, setGeojsonData, selectedPark, setSelectedPark, showDetail,setShowDetail} = useMapContext();
+  const [editMode,setEditMode] = useState(false);
+  const [capacity,setCapacity] = useState(0);
+  const editParkData = (parkID, newProperties) => {
+    const updatedGeojsonData = produce(geojsonData, (draft) => {
+      const feature = draft.features.find((feature) => feature.properties.parkID === parkID);
+      if (feature) {
+        Object.assign(feature.properties, newProperties);
+      }
+    });
+  
+    setGeojsonData(updatedGeojsonData);
+  
+    localStorage.setItem('parkData', JSON.stringify(updatedGeojsonData));
+  };
+
+  const updateParkData = (id) => {
+   setEditMode(!editMode);
+  
+  }
+
+  return (
+    <div className='mapContainer'>
+     {
+      // showDetail && ( <div className='mapDetailModal'>
+      //   <h2>{selectedPark.parkName}</h2>
+      //   <p>Kapasite:{editMode === true ? <><input value={capacity} onChange={e=>setCapacity(e.target.value)} type="text" /></>:selectedPark.capacity}</p>
+      //   <p>Boş Kapasite:{selectedPark.freeTime}</p>
+      //   <p>Durum:{selectedPark.isOpen === 1 ? "Açık" : "Kapalı"}</p>
+      //   <button onClick={() => updateParkData(selectedPark.parkID)}>Düzenle</button>
+      //   <button onClick={() => setShowDetail(!showDetail)}>Close</button>
+      // </div>)
+     }
+        <div ref={mapContainer} className="map"> </div>
+    </div>
+  );
+}
+
+
+/*
   const mapContainer = useRef(null);
   const map = useRef(null);
-  const [parkData, setParkData] = useState([]);
   const [selectedPark, setSelectedPark] = useState(null);
+
   const [isEditing, setIsEditing] = useState(false);
   const istanbul = { lng: 28.979530, lat: 41.015137 };
   const zoom = 10;
@@ -28,10 +70,10 @@ export default function Map() {
       try {
         const response = await fetch('https://api.ibb.gov.tr/ispark/Park');
         const data = await response.json();
-        setParkData(data);
 
-        const image = await map.current.loadImage('https://play-lh.googleusercontent.com/4atL8glnagLk6Vj_IDqv_TroPmu2Probvv2mezHizfer64J3vy2qRPwsjR8gBBipunY');
-        map.current.addImage('isPark', image);
+
+        //const image = await map.current.loadImage('https://play-lh.googleusercontent.com/4atL8glnagLk6Vj_IDqv_TroPmu2Probvv2mezHizfer64J3vy2qRPwsjR8gBBipunY');
+        //map.current.addImage('isPark', image);
 
         const geojsonData = {
           type: 'FeatureCollection',
@@ -44,17 +86,19 @@ export default function Map() {
             properties: { cluster: false, ...park }
           }))
         };
+        localStorage.setItem('parkData', JSON.stringify(geojsonData));
+    
 
         const index = new Supercluster({
           radius: 40,
           maxZoom: 22,
           minPoints: 1
         });
-        index.load(geojsonData.features);
-
+        index.load(JSON.parse(localStorage.getItem('parkData')).features);
+     
         map.current.addSource('parks', {
           type: 'geojson',
-          data: geojsonData,
+          data: JSON.parse(localStorage.getItem('parkData')),
           cluster: true,
           clusterMaxZoom: 22,
           clusterRadius: 50
@@ -106,7 +150,7 @@ export default function Map() {
           filter: ['!', ['has', 'point_count']],
           paint: {
             'circle-color': '#11b4da',
-            'circle-radius': 8,
+            'circle-radius': 15,
             'circle-stroke-width': 1,
             'circle-stroke-color': '#fff'
           }
@@ -160,12 +204,4 @@ export default function Map() {
       }
     });
   }, [istanbul.lng, istanbul.lat, zoom]);
-
-
-  return (
-    <div className="map-wrap">
-      <div ref={mapContainer} className="map" />
-      {isEditing && selectedPark }
-    </div>
-  );
-}
+*/
