@@ -1,16 +1,15 @@
-// context/MapContext.js
 import React, { useState, useRef, useEffect, createContext, useContext } from 'react';
 import * as maptilersdk from '@maptiler/sdk';
 import "@maptiler/sdk/dist/maptiler-sdk.css";
 import Supercluster from 'supercluster';
 
-// Create the context
+// Context oluşturma
 const MapContext = createContext();
 
-// Export the custom hook for easier usage
+// Kullanım için özel hook
 export const useMapContext = () => useContext(MapContext);
 
-// Create the provider component
+// Provider bileşeni oluşturma
 export const MapProvider = ({ children }) => {
   const mapContainer = useRef(null);
   const map = useRef(null);
@@ -18,16 +17,18 @@ export const MapProvider = ({ children }) => {
     const storedData = localStorage.getItem('parkData');
     return storedData ? JSON.parse(storedData) : { type: 'FeatureCollection', features: [] };
   });
-  const [showDetail,setShowDetail] = useState(false)
+  const [showDetail, setShowDetail] = useState(false);
   const [selectedPark, setSelectedPark] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  const istanbul = { lng: 28.9784, lat: 41.0082 }; // Example coordinates for Istanbul
+  const istanbul = { lng: 28.9784, lat: 41.0082 }; // İstanbul koordinatları
   const zoom = 10;
   maptilersdk.config.apiKey = '63IPOa1Mo2aXc209oImc';
 
+
+
   useEffect(() => {
-    if (map.current) return;
+    if (map.current) return; // Eğer harita tanımlanmışsa tekrar oluşturma
 
     map.current = new maptilersdk.Map({
       container: mapContainer.current,
@@ -50,9 +51,10 @@ export const MapProvider = ({ children }) => {
                 type: 'Point',
                 coordinates: [parseFloat(park.lng), parseFloat(park.lat)],
               },
-              properties: { ...park },
+              properties: { ...park }, // API'den gelen doğru alanları kullanın
             })),
           };
+        
 
           setGeojsonData(initialGeojsonData);
           localStorage.setItem('parkData', JSON.stringify(initialGeojsonData));
@@ -66,10 +68,10 @@ export const MapProvider = ({ children }) => {
         maxZoom: 22,
       });
       index.load(geojsonData.features);
-      console.log("Initialized!!")
+
       map.current.addSource('parks', {
         type: 'geojson',
-        data: geojsonData, 
+        data: geojsonData,
         cluster: true,
         clusterMaxZoom: 22,
         clusterRadius: 50,
@@ -120,63 +122,18 @@ export const MapProvider = ({ children }) => {
         source: 'parks',
         filter: ['!', ['has', 'point_count']],
         paint: {
-          'circle-color': '#11b4da',
+          'circle-color': '#000000',
           'circle-radius': 15,
           'circle-stroke-width': 1,
           'circle-stroke-color': '#fff',
         },
       });
 
-      // Event handler for clicking unclustered points
       map.current.on('click', 'unclustered-point', (e) => {
         const features = e.features[0];
         setSelectedPark(features.properties);
         setShowDetail(true);
-        
-              // Create a popup with editable fields
-        const popup = new maptilersdk.Popup({ offset: 25, closeButton: true, closeOnClick: true })
-          .setLngLat(features.geometry.coordinates)
-          .setHTML(`
-            <div>
-              <h3><input type="text" id="edit-parkName" value="${features.properties.parkName}" /></h3>
-              <p><strong>Kapasite:</strong> <input type="number" id="edit-capacity" value="${features.properties.capacity}" /></p>
-              <p><strong>Boş Kapasite:</strong> <input type="number" id="edit-emptyCapacity" value="${features.properties.emptyCapacity}" /></p>
-              <p><strong>Durum:</strong> 
-                <select id="edit-isOpen">
-                  <option value="true" ${features.properties.isOpen ? 'selected' : ''}>Açık</option>
-                  <option value="false" ${!features.properties.isOpen ? 'selected' : ''}>Kapalı</option>
-                </select>
-              </p>
-              <button id="save-changes">Kaydet</button>
-            </div>
-          `)
-          .addTo(map.current);
-        
-
-        // Event listener for the "Save" button
-        popup.getElement().querySelector('#save-changes').addEventListener('click', () => {
-          // Get the updated values from the input fields
-          const newParkName = document.getElementById('edit-parkName').value;
-          const newCapacity = document.getElementById('edit-capacity').value;
-          const newEmptyCapacity = document.getElementById('edit-emptyCapacity').value;
-          const newIsOpen = document.getElementById('edit-isOpen').value === 'true';
-
-          // Construct new properties object
-          const updatedProperties = {
-            ...features.properties,
-            parkName: newParkName,
-            capacity: parseInt(newCapacity, 10),
-            emptyCapacity: parseInt(newEmptyCapacity, 10),
-            isOpen: newIsOpen,
-          };
-
-          // Call editParkData to update the geojsonData
-          editParkData(features.properties.id, updatedProperties);
-          setIsEditing(false);
-          popup.remove();
-        });
-
-        setIsEditing(true);
+        setIsEditing(false);
       });
 
       map.current.on('click', 'clusters', async (e) => {
@@ -199,22 +156,40 @@ export const MapProvider = ({ children }) => {
         }
       });
     });
+    console.log(geojsonData)
   }, [istanbul.lng, istanbul.lat, zoom, geojsonData]);
 
+  // GeoJSON verilerini güncelle ve harita kaynağını yenile
   const updateGeojsonData = (newData) => {
     setGeojsonData(newData);
     localStorage.setItem('parkData', JSON.stringify(newData));
+
+    if (map.current && map.current.getSource('parks')) {
+      map.current.getSource('parks').setData(newData); // Harita kaynağını güncelle
+    }
   };
 
+  // Yalnızca seçili parkı güncellemek için fonksiyon
   const editParkData = (id, newProperties) => {
     const updatedFeatures = geojsonData.features.map((feature) =>
-      feature.properties.id === id ? { ...feature, properties: { ...feature.properties, ...newProperties } } : feature
+      feature.properties.parkID === id ? { ...feature, properties: { ...feature.properties, ...newProperties } } : feature
     );
     updateGeojsonData({ ...geojsonData, features: updatedFeatures });
   };
 
   return (
-    <MapContext.Provider value={{ mapContainer, geojsonData, setGeojsonData: updateGeojsonData, selectedPark, setSelectedPark, isEditing, setIsEditing,showDetail,setShowDetail }}>
+    <MapContext.Provider value={{ 
+      mapContainer, 
+      geojsonData, 
+      setGeojsonData: updateGeojsonData, 
+      selectedPark, 
+      setSelectedPark, 
+      isEditing, 
+      setIsEditing, 
+      showDetail, 
+      setShowDetail,
+      editParkData
+    }}>
       {children}
     </MapContext.Provider>
   );
