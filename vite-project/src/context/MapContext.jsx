@@ -28,7 +28,7 @@ export const MapProvider = ({ children }) => {
 
 
   useEffect(() => {
-    if (map.current) return; // Eğer harita tanımlanmışsa tekrar oluşturma
+    if (map.current) return; // Hata varsa tekrar oluştur.
 
     map.current = new maptilersdk.Map({
       container: mapContainer.current,
@@ -51,7 +51,7 @@ export const MapProvider = ({ children }) => {
                 type: 'Point',
                 coordinates: [parseFloat(park.lng), parseFloat(park.lat)],
               },
-              properties: { ...park }, // API'den gelen doğru alanları kullanın
+              properties: { ...park },    //dönen yanıtın doğru alanı
             })),
           };
         
